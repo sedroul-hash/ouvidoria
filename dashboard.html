@@ -1,28 +1,23 @@
 <?php
-include("conexao.php"); // Chama a conexão
+include 'config.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Pega o que foi digitado no formulário
-    $tipo_texto = $_POST['tipo']; 
+    $assunto = $_POST['assunto'];
+    $tipo = $_POST['tipo']; // Você precisará converter o texto para o ID da TBTIPO
     $mensagem = $_POST['mensagem'];
+    $idusu = 1; // Temporário: Pegar da sessão do usuário logado
 
-    // 1. Primeiro buscamos o ID do tipo selecionado
-    $sql_tipo = "SELECT idtipo FROM TBTIPO WHERE tipo = '$tipo_texto'";
-    $res_tipo = $conn->query($sql_tipo);
-    $dados_tipo = $res_tipo->fetch_assoc();
-    $idtipo = $dados_tipo['idtipo'];
+    $sql = "INSERT INTO TBMANIFEST (idusu, manifest, status) VALUES (?, ?, 'aberto')";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("is", $idusu, $mensagem);
 
-    // 2. Inserimos na tabela de manifestações
-    $sql = "INSERT INTO TBMANIFEST (idtipo, manifest, status) 
-            VALUES ('$idtipo', '$mensagem', 'Em análise')";
-
-    if ($conn->query($sql) === TRUE) {
-        echo "<script>alert('Enviado com sucesso!'); window.location.href='principal.php';</script>";
-    } else {
-        echo "Erro: " . $conn->error;
+    if ($stmt->execute()) {
+        header("Location: dashboard.php?sucesso=1");
     }
 }
 ?>
+
+
 
 <!DOCTYPE html>
 <html lang="pt-br">
