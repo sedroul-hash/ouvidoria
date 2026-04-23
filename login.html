@@ -1,3 +1,34 @@
+<?php
+include("conexao.php");
+
+$email = $_POST['email'];
+$senha = $_POST['senha'];
+
+// Evita SQL Injection
+$email = $conn->real_escape_string($email);
+
+$sql = "SELECT * FROM usuarios WHERE email = '$email'";
+$result = $conn->query($sql);
+
+if ($result->num_rows > 0) {
+    $usuario = $result->fetch_assoc();
+
+    // Verifica senha (criptografada)
+    if (password_verify($senha, $usuario['senha'])) {
+        session_start();
+        $_SESSION['usuario'] = $usuario['nome'];
+
+        header("Location: dashboard.php");
+        exit();
+    } else {
+        echo "Senha incorreta!";
+    }
+} else {
+    echo "Usuário não encontrado!";
+}
+?>
+
+
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -160,22 +191,12 @@
       <span>Ouvidoria Digital</span>
     </div>
 
-    <form id="loginForm">
+    <form id="loginForm" action="logar.php" method="POST">
       <h3 class="title">Acesse sua conta</h3>
-
-      <input type="email" class="form-control mb-3" placeholder="E-mail institucional ou CPF" required>
-      <input type="password" class="form-control mb-2" placeholder="Senha" required>
-
-      <div class="forgot" onclick="esqueciSenha()">
-        Esqueci minha senha
-      </div>
-
-      <button class="btn-main" type="submit">Entrar</button>
-
-      <div class="switch" onclick="mostrarCadastro()">
-        Não tem conta? <b>Cadastre-se aqui</b>
-      </div>
-    </form>
+      <input type="email" name="email" class="form-control mb-3" placeholder="E-mail institucional" required>
+      <input type="password" name="senha" class="form-control mb-2" placeholder="Senha" required>
+     <button class="btn-main" type="submit">Entrar</button>
+  </form>
 
     <form id="cadastroForm" class="hidden">
       <h3 class="title">Criar nova conta</h3>
@@ -201,11 +222,7 @@
       document.getElementById("cadastroForm").classList.remove("hidden");
     }
 
-    function mostrarLogin() {
-      document.getElementById("cadastroForm").classList.add("hidden");
-      document.getElementById("loginForm").classList.remove("hidden");
-    }
-
+    
     document.getElementById('loginForm').addEventListener('submit', function(event) {
       event.preventDefault();
       window.location.href = 'dashboard.html';
