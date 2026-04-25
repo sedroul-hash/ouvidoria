@@ -1,18 +1,25 @@
 <?php
-include 'config.php';
+include 'conexoes.php'; 
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $assunto = $_POST['assunto'];
-    $tipo = $_POST['tipo']; // Você precisará converter o texto para o ID da TBTIPO
+    $tipo = $_POST['tipo']; 
     $mensagem = $_POST['mensagem'];
-    $idusu = 1; // Temporário: Pegar da sessão do usuário logado
+    $idusu = 1; 
 
-    $sql = "INSERT INTO TBMANIFEST (idusu, manifest, status) VALUES (?, ?, 'aberto')";
+    // --- SUBSTRITUA A PARTIR DAQUI ---
+    $sql = "INSERT INTO TBMANIFEST (idusu, assunto, tipo, manifest, status) VALUES (?, ?, ?, ?, 'aberto')";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("is", $idusu, $mensagem);
+    
+    // "isss" significa: 1 Inteiro (idusu) e 3 Strings (assunto, tipo, mensagem)
+    $stmt->bind_param("isss", $idusu, $assunto, $tipo, $mensagem);
+    // --- ATÉ AQUI ---
 
     if ($stmt->execute()) {
         header("Location: dashboard.php?sucesso=1");
+        exit();
+    } else {
+        echo "Erro ao salvar: " . $conn->error;
     }
 }
 ?>
@@ -240,56 +247,85 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
   <div class="row g-4 mb-4">
     <div class="col-md-4">
-      <div class="status-card bg-dw-verde">
-        <h5>Resolvidas</h5>
-        <h2 id="resolvidas">0</h2>
-      </div>
+        <div class="status-card bg-dw-verde">
+            <h5>Resolvidas</h5>
+            <?php
+                $res = $conn->query("SELECT COUNT(*) as total FROM TBMANIFEST WHERE idusu = 1 AND status = 'resolvido'");
+                $row = $res->fetch_assoc();
+                echo "<h2>" . ($row['total'] ?? 0) . "</h2>";
+            ?>
+        </div>
     </div>
 
     <div class="col-md-4">
-      <div class="status-card bg-dw-laranja">
-        <h5>Em análise</h5>
-        <h2 id="analise">0</h2>
-      </div>
+        <div class="status-card bg-dw-laranja">
+            <h5>Em análise</h5>
+            <?php
+                $res = $conn->query("SELECT COUNT(*) as total FROM TBMANIFEST WHERE idusu = 1 AND status = 'aberto'");
+                $row = $res->fetch_assoc();
+                echo "<h2>" . ($row['total'] ?? 0) . "</h2>";
+            ?>
+        </div>
     </div>
 
     <div class="col-md-4">
-      <div class="status-card bg-dw-azul">
-        <h5>Total enviado</h5>
-        <h2 id="total">0</h2>
-      </div>
+        <div class="status-card bg-dw-azul">
+            <h5>Total enviado</h5>
+            <?php
+                $res = $conn->query("SELECT COUNT(*) as total FROM TBMANIFEST WHERE idusu = 1");
+                $row = $res->fetch_assoc();
+                echo "<h2>" . ($row['total'] ?? 0) . "</h2>";
+            ?>
+        </div>
     </div>
-  </div>
+</div>
 
-  <div class="row">
-    <div class="col-lg-5">
-      <div class="card-box">
+  <form method="POST" action="dashboard.php">
+    <div class="card-box">
         <h4>Nova Manifestação</h4>
-        <input id="assunto" class="form-control" placeholder="Assunto da mensagem">
+        <input name="assunto" id="assunto" class="form-control" placeholder="Assunto da mensagem" required>
 
-        <select id="tipo" class="form-control">
-          <option value="">Selecione o Tipo</option>
-          <option>Reclamação</option>
-          <option>Sugestão</option>
-          <option>Elogio</option>
-          <option>Denúncia</option>
+        <select name="tipo" id="tipo" class="form-control" required>
+            <option value="">Selecione o Tipo</option>
+            <option value="1">Reclamação</option>
+            <option value="2">Sugestão</option>
+            <option value="3">Elogio</option>
+            <option value="4">Denúncia</option>
         </select>
 
-        <textarea id="mensagem" class="form-control" rows="4" placeholder="Descreva detalhadamente o ocorrido..."></textarea>
+        <textarea name="mensagem" id="mensagem" class="form-control" rows="4" placeholder="Descreva detalhadamente o ocorrido..." required></textarea>
 
-        <button class="btn-enviar w-100" onclick="enviar()">Enviar Manifestação</button>
-      </div>
+        <button type="submit" class="btn-enviar w-100">Enviar Manifestação</button>
     </div>
+</form>
 
-    <div class="col-lg-7">
-      <div class="card-box">
-        <h4>Histórico Recente</h4>
-        <div id="lista">
-          <p class="text-muted text-center py-4">Nenhuma solicitação enviada ainda.</p>
-        </div>
-      </div>
+    <div class="card-box">
+    <h4>Histórico Recente</h4>
+    <div id="lista">
+        <?php
+        $sql = "SELECT * FROM TBMANIFEST WHERE idusu = 1 ORDER BY id DESC"; // 'id' ou sua chave primária
+        $result = $conn->query($sql);
+
+        if ($result->num_rows > 0) {
+            while($row = $result->fetch_assoc()) {
+                echo '
+                <div class="solicitacao-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="badge-status mb-2 d-inline-block">#'. $row['id'] .'</span>
+                        <h6 class="mb-1" style="font-weight:600;">Relato Enviado</h6>
+                        <small class="text-muted">Status: '. ucfirst($row['status']) .'</small>
+                    </div>
+                    <div class="text-end">
+                        <span style="color: var(--laranja-dw); font-weight: 600; font-size: 0.85rem;">'. $row['status'] .'</span>
+                    </div>
+                </div>';
+            }
+        } else {
+            echo '<p class="text-muted text-center py-4">Nenhuma solicitação enviada ainda.</p>';
+        }
+        ?>
     </div>
-  </div>
+</div>
 
 </div>
 
