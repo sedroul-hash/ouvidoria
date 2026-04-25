@@ -2,18 +2,22 @@
 include 'conexoes.php'; 
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    // Recebendo os dados do formulário
+    $idtipo = $_POST['tipo']; // O valor (1, 2, 3...) que vem do <select>
     $assunto = $_POST['assunto'];
-    $tipo = $_POST['tipo']; 
     $mensagem = $_POST['mensagem'];
-    $idusu = 1; 
+    $idusu = 1; // Temporário: ID do usuário logado
 
-    // --- SUBSTRITUA A PARTIR DAQUI ---
-    $sql = "INSERT INTO TBMANIFEST (idusu, assunto, tipo, manifest, status) VALUES (?, ?, ?, ?, 'aberto')";
+    // Como não existe coluna "assunto", vamos juntar o assunto com a mensagem
+    $manifest_completo = "ASSUNTO: " . $assunto . " | MENSAGEM: " . $mensagem;
+
+    // SQL corrigido para as colunas reais: idusu, idtipo, manifest
+    $sql = "INSERT INTO tbmanifest (idusu, idtipo, manifest, status) VALUES (?, ?, ?, 'Aberto')";
+    
     $stmt = $conn->prepare($sql);
     
-    // "isss" significa: 1 Inteiro (idusu) e 3 Strings (assunto, tipo, mensagem)
-    $stmt->bind_param("isss", $idusu, $assunto, $tipo, $mensagem);
-    // --- ATÉ AQUI ---
+    // "iis" -> idusu (inteiro), idtipo (inteiro), manifest_completo (string)
+    $stmt->bind_param("iis", $idusu, $idtipo, $manifest_completo);
 
     if ($stmt->execute()) {
         header("Location: dashboard.php?sucesso=1");
@@ -286,11 +290,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <input name="assunto" id="assunto" class="form-control" placeholder="Assunto da mensagem" required>
 
         <select name="tipo" id="tipo" class="form-control" required>
-            <option value="">Selecione o Tipo</option>
-            <option value="1">Reclamação</option>
-            <option value="2">Sugestão</option>
-            <option value="3">Elogio</option>
-            <option value="4">Denúncia</option>
+          <option value="">Selecione o Tipo</option>
+          <option value="1">Reclamação</option>
+          <option value="2">Sugestão</option>
+          <option value="3">Elogio</option>
+          <option value="4">Denúncia</option>
         </select>
 
         <textarea name="mensagem" id="mensagem" class="form-control" rows="4" placeholder="Descreva detalhadamente o ocorrido..." required></textarea>
