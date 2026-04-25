@@ -177,7 +177,7 @@
   <div id="protocoloBox" class="protocolo-box">
     </div>
 
-  <a href="javascript:void(0)" class="btn-back" onclick="voltar()">← Voltar para a página inicial</a>
+  <a href="javascript:void(0)" class="btn-back" onclick="window.location.href='index.php'">← Voltar para a página inicial</a>
 
 </div>
 
@@ -209,7 +209,7 @@ function enviarAnonimo() {
 }
 
 function voltar(){
-  window.location.href = "principal.html";
+  window.location.href = "index.php";
 }
 </script>
 

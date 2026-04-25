@@ -1,22 +1,26 @@
 <?php
-include 'conexoes.php'; 
+include 'conexoes.php';
+session_start();
 
+// 1. Verificação de segurança (Agora vai funcionar porque a sessão tem 'logado')
+if (!isset($_SESSION['logado']) || !isset($_SESSION['idusu'])) {
+    header("Location: login.php");
+    exit();
+}
+
+$idusu = $_SESSION['idusu']; 
+
+// 2. Processamento do Formulário
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Recebendo os dados do formulário
-    $idtipo = $_POST['tipo']; // O valor (1, 2, 3...) que vem do <select>
+    $idtipo = $_POST['tipo']; 
     $assunto = $_POST['assunto'];
     $mensagem = $_POST['mensagem'];
-    $idusu = 1; // Temporário: ID do usuário logado
-
-    // Como não existe coluna "assunto", vamos juntar o assunto com a mensagem
+    
+    // Concatenamos assunto e mensagem já que não há coluna 'assunto' na sua tabela
     $manifest_completo = "ASSUNTO: " . $assunto . " | MENSAGEM: " . $mensagem;
 
-    // SQL corrigido para as colunas reais: idusu, idtipo, manifest
     $sql = "INSERT INTO tbmanifest (idusu, idtipo, manifest, status) VALUES (?, ?, ?, 'Aberto')";
-    
     $stmt = $conn->prepare($sql);
-    
-    // "iis" -> idusu (inteiro), idtipo (inteiro), manifest_completo (string)
     $stmt->bind_param("iis", $idusu, $idtipo, $manifest_completo);
 
     if ($stmt->execute()) {
@@ -27,7 +31,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 ?>
-
 
 
 <!DOCTYPE html>
@@ -231,20 +234,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <body>
 
 <div class="sidebar">
-  <div class="brand">
+  <div class="brand text-center mb-4">
     <img src="logo_dw.png" alt="Dom Walfrido" class="sidebar-logo">
     <h4>DOM WALFRIDO</h4>
     <p>Ouvidoria Digital</p>
   </div>
-
-  <button class="nav-btn active" onclick="nova()">Nova Manifestação</button>
-  <button class="nav-btn" onclick="carregar()">Minhas Solicitações</button>
-  <div style="height: 50vh;"></div> <button class="nav-btn" onclick="logout()" style="color: #ff9b9b;">Logout</button>
+  <button class="nav-btn active" onclick="location.href='#novo'">Nova Manifestação</button>
+  <button class="nav-btn" onclick="location.href='#lista-hist'">Minhas Solicitações</button>
+  <div style="height: 45vh;"></div>
+  <button class="nav-btn" onclick="logout()" style="color: #ff9b9b;">Sair</button>
 </div>
 
 <div class="content">
-
-  <div class="welcome-text">
+  <div class="welcome-text mb-4">
     <h2>Olá, Bem-vindo(a)!</h2>
     <p class="text-muted">Acompanhe suas interações com a nossa instituição.</p>
   </div>
@@ -254,73 +256,69 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <div class="status-card bg-dw-verde">
             <h5>Resolvidas</h5>
             <?php
-                $res = $conn->query("SELECT COUNT(*) as total FROM TBMANIFEST WHERE idusu = 1 AND status = 'resolvido'");
+                $res = $conn->query("SELECT COUNT(*) as total FROM tbmanifest WHERE idusu = $idusu AND status = 'Resolvido'");
                 $row = $res->fetch_assoc();
-                echo "<h2>" . ($row['total'] ?? 0) . "</h2>";
+                echo "<h2>" . $row['total'] . "</h2>";
             ?>
         </div>
     </div>
-
     <div class="col-md-4">
         <div class="status-card bg-dw-laranja">
             <h5>Em análise</h5>
             <?php
-                $res = $conn->query("SELECT COUNT(*) as total FROM TBMANIFEST WHERE idusu = 1 AND status = 'aberto'");
+                $res = $conn->query("SELECT COUNT(*) as total FROM tbmanifest WHERE idusu = $idusu AND status != 'Resolvido'");
                 $row = $res->fetch_assoc();
-                echo "<h2>" . ($row['total'] ?? 0) . "</h2>";
+                echo "<h2>" . $row['total'] . "</h2>";
             ?>
         </div>
     </div>
-
     <div class="col-md-4">
         <div class="status-card bg-dw-azul">
             <h5>Total enviado</h5>
             <?php
-                $res = $conn->query("SELECT COUNT(*) as total FROM TBMANIFEST WHERE idusu = 1");
+                $res = $conn->query("SELECT COUNT(*) as total FROM tbmanifest WHERE idusu = $idusu");
                 $row = $res->fetch_assoc();
-                echo "<h2>" . ($row['total'] ?? 0) . "</h2>";
+                echo "<h2>" . $row['total'] . "</h2>";
             ?>
         </div>
     </div>
-</div>
+  </div>
 
-  <form method="POST" action="dashboard.php">
+  <form method="POST" id="novo">
     <div class="card-box">
         <h4>Nova Manifestação</h4>
-        <input name="assunto" id="assunto" class="form-control" placeholder="Assunto da mensagem" required>
-
-        <select name="tipo" id="tipo" class="form-control" required>
+        <?php if(isset($_GET['sucesso'])) echo '<div class="alert alert-success">Manifestação enviada com sucesso!</div>'; ?>
+        <input name="assunto" class="form-control" placeholder="Assunto da mensagem" required>
+        <select name="tipo" class="form-control" required>
           <option value="">Selecione o Tipo</option>
           <option value="1">Reclamação</option>
           <option value="2">Sugestão</option>
           <option value="3">Elogio</option>
           <option value="4">Denúncia</option>
         </select>
-
-        <textarea name="mensagem" id="mensagem" class="form-control" rows="4" placeholder="Descreva detalhadamente o ocorrido..." required></textarea>
-
-        <button type="submit" class="btn-enviar w-100">Enviar Manifestação</button>
+        <textarea name="mensagem" class="form-control" rows="4" placeholder="Descreva detalhadamente o ocorrido..." required></textarea>
+        <button type="submit" class="btn-enviar">Enviar Manifestação</button>
     </div>
-</form>
+  </form>
 
-    <div class="card-box">
+  <div class="card-box" id="lista-hist">
     <h4>Histórico Recente</h4>
     <div id="lista">
         <?php
-        $sql = "SELECT * FROM TBMANIFEST WHERE idusu = 1 ORDER BY id DESC"; // 'id' ou sua chave primária
+        $sql = "SELECT * FROM tbmanifest WHERE idusu = $idusu ORDER BY idmanifest DESC";
         $result = $conn->query($sql);
 
-        if ($result->num_rows > 0) {
+        if ($result && $result->num_rows > 0) {
             while($row = $result->fetch_assoc()) {
                 echo '
                 <div class="solicitacao-item d-flex justify-content-between align-items-center">
                     <div>
-                        <span class="badge-status mb-2 d-inline-block">#'. $row['id'] .'</span>
-                        <h6 class="mb-1" style="font-weight:600;">Relato Enviado</h6>
-                        <small class="text-muted">Status: '. ucfirst($row['status']) .'</small>
+                        <span class="badge-status mb-2 d-inline-block">#'. $row['idmanifest'] .'</span>
+                        <h6 class="mb-1" style="font-weight:600;">Relato Enviado em '. date('d/m/Y', strtotime($row['data_envio'])) .'</h6>
+                        <small class="text-muted">Status: '. $row['status'] .'</small>
                     </div>
                     <div class="text-end">
-                        <span style="color: var(--laranja-dw); font-weight: 600; font-size: 0.85rem;">'. $row['status'] .'</span>
+                        <span style="color: var(--laranja-dw); font-weight: 600;">'. $row['status'] .'</span>
                     </div>
                 </div>';
             }
@@ -329,88 +327,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
         ?>
     </div>
-</div>
-
+  </div>
 </div>
 
 <script>
-let dados = [];
-
-function enviar() {
-  const assunto = document.getElementById("assunto").value;
-  const tipo = document.getElementById("tipo").value;
-  const mensagem = document.getElementById("mensagem").value;
-
-  if(!assunto || !tipo || !mensagem){
-    alert("Por favor, preencha todos os campos.");
-    return;
-  }
-
-  const protocolo = Math.floor(Math.random() * 900000) + 100000;
-
-  const obj = {
-    protocolo,
-    assunto,
-    tipo,
-    status: "Em análise",
-    data: new Date().toLocaleDateString('pt-BR')
-  };
-
-  dados.unshift(obj); // Adiciona no início da lista
-
-  atualizar();
-  limpar();
-
-  alert("Manifestação enviada com sucesso!\nProtocolo: #" + protocolo);
-}
-
-function atualizar() {
-  const lista = document.getElementById("lista");
-  lista.innerHTML = "";
-
-  let resolvidas = 0;
-
-  if(dados.length === 0) {
-    lista.innerHTML = '<p class="text-muted text-center py-4">Nenhuma solicitação enviada ainda.</p>';
-    return;
-  }
-
-  dados.forEach(item => {
-    if(item.status === "Resolvido") resolvidas++;
-
-    lista.innerHTML += `
-      <div class="solicitacao-item d-flex justify-content-between align-items-center">
-        <div>
-          <span class="badge-status mb-2 d-inline-block">#${item.protocolo}</span>
-          <h6 class="mb-1" style="font-weight:600;">${item.assunto}</h6>
-          <small class="text-muted">${item.tipo} • ${item.data}</small>
-        </div>
-        <div class="text-end">
-           <span style="color: var(--laranja-dw); font-weight: 600; font-size: 0.85rem;">${item.status}</span>
-        </div>
-      </div>
-    `;
-  });
-
-  document.getElementById("total").innerText = dados.length;
-  document.getElementById("analise").innerText = dados.length - resolvidas;
-  document.getElementById("resolvidas").innerText = resolvidas;
-}
-
-function limpar(){
-  document.getElementById("assunto").value = "";
-  document.getElementById("tipo").value = "";
-  document.getElementById("mensagem").value = "";
-}
-
 function logout(){
-  if(confirm("Deseja realmente sair?")) {
-    window.location.href = "principal.html";
-  }
+  if(confirm("Deseja realmente sair?")) { window.location.href = "logout.php"; }
 }
-
-function nova(){ window.scrollTo({top: 0, behavior: 'smooth'}); }
-function carregar(){ window.scrollTo({top: 500, behavior: 'smooth'}); }
 </script>
 
 </body>

@@ -245,9 +245,10 @@
   </section>
 
   <script>
-    function login() { window.location.href = "login.html"; }
-    function anonimo() { window.location.href = "anonimo.html"; }
-  </script>
+    // Se o arquivo agora é PHP, o link deve terminar em .php
+    function login() { window.location.href = "login.php"; } 
+    function anonimo() { window.location.href = "anonimo.php"; }
+</script>
 
 </body>
 </html>

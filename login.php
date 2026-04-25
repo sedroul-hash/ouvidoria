@@ -22,10 +22,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             
             // MUDANÇA AQUI: Comparamos o texto direto em vez de usar password_verify
             if ($senha == $usuario['senha']) { 
-                $_SESSION['id_usuario'] = $usuario['idusu'];
-                $_SESSION['usuario'] = $usuario['nome'];
-                header("Location: dashboard.php");
-                exit();
+              $_SESSION['idusu'] = $usuario['idusu']; // Mudei de id_usuario para idusu
+              $_SESSION['usuario'] = $usuario['nome'];
+              $_SESSION['logado'] = true; // ADICIONE ESTA LINHA para o Dashboard te deixar entrar
+              header("Location: dashboard.php");
+              exit();
             } else {
                 $erro = "Senha incorreta!";
             }
@@ -238,7 +239,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       </div>
     </form>
 
-    <a href="principal.php" class="btn-back">← Voltar para o início</a>
+    <a href="index.php" class="btn-back">← Voltar para o início</a>
   </div>
 
   <script>
