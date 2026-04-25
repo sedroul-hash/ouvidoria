@@ -1,0 +1,267 @@
+<?php
+include 'config.php';
+$resultado = $conn->query("SELECT * FROM TBMANIFEST ORDER BY idmanifest DESC");
+?>
+
+<div id="lista">
+    <?php while($row = $resultado->fetch_assoc()): ?>
+    <div class="item">
+        <div class="d-flex justify-content-between">
+            <span><strong>#<?php echo $row['idmanifest']; ?></strong></span>
+            <span class="badge-status analise"><?php echo $row['status']; ?></span>
+        </div>
+        <div class="mt-2">
+            <p><?php echo $row['manifest']; ?></p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+             <form action="atualizar_status.php" method="POST">
+                 <input type="hidden" name="id" value="<?php echo $row['idmanifest']; ?>">
+                 <select name="status" class="status-select" onchange="this.form.submit()">
+                    <option <?php echo $row['status'] == 'aberto' ? 'selected' : ''; ?>>Aberto</option>
+                    <option <?php echo $row['status'] == 'resolvido' ? 'selected' : ''; ?>>Resolvido</option>
+                 </select>
+             </form>
+        </div>
+    </div>
+    <?php endwhile; ?>
+</div>
+
+
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin - Gestão Dom Walfrido</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --verde-dw: #14462a;
+  --verde-claro: #1a5c38;
+  --laranja-dw: #f37021;
+  --fundo: #f1f5f9;
+  --branco: #ffffff;
+}
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background: var(--fundo);
+  margin: 0;
+}
+
+/* SIDEBAR ADMIN */
+.sidebar {
+  width: 260px;
+  height: 100vh;
+  background: var(--verde-dw);
+  color: white;
+  position: fixed;
+  padding: 30px 20px;
+  box-shadow: 4px 0 10px rgba(0,0,0,0.1);
+  z-index: 1000;
+}
+
+.sidebar .brand {
+  text-align: center;
+  margin-bottom: 35px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  padding-bottom: 20px;
+}
+
+.sidebar h4 {
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 1px;
+}
+
+.sidebar p {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  margin: 0;
+  color: var(--laranja-dw);
+}
+
+
+.nav-btn {
+  width: 100%;
+  margin-top: 10px;
+  border: none;
+  padding: 12px 15px;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(255,255,255,0.7);
+  text-align: left;
+  font-weight: 500;
+  transition: 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: white;
+}
+
+.nav-btn.active {
+  background: var(--laranja-dw);
+  color: white;
+}
+
+/* CONTEÚDO */
+.content {
+  margin-left: 260px;
+  padding: 40px;
+}
+
+.header-title {
+  color: var(--verde-dw);
+  font-weight: 700;
+  margin-bottom: 30px;
+}
+
+/* CARDS DE MANIFESTAÇÃO */
+.card-box {
+  background: var(--branco);
+  padding: 25px;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+  margin-bottom: 20px;
+}
+
+.item {
+  padding: 20px;
+  border-bottom: 1px solid #f0f0f0;
+  transition: 0.3s;
+  border-radius: 10px;
+}
+
+.item:hover {
+  background: #f8fafc;
+}
+
+.item:last-child { border-bottom: none; }
+
+/* BADGES E STATUS */
+.badge-anon {
+  background: #334155;
+  color: white;
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  text-transform: uppercase;
+}
+
+.status-select {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.badge-status {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.analise { background: #fef3c7; color: #92400e; }
+.resolvido { background: #dcfce7; color: #166534; }
+
+.btn-delete {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: 0.3s;
+}
+
+.btn-delete:hover { background: #fca5a5; }
+
+@media(max-width: 768px){
+  .sidebar { width: 100%; height: auto; position: relative; padding: 15px; }
+  .content { margin-left: 0; padding: 20px; }
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+  <div class="brand">
+    <img src="logo_dw.png" width="40" class="mb-2"  alt="">
+    <h4>PAINEL ADMIN</h4>
+    <p>Ouvidoria Dom Walfrido</p>
+  </div>
+
+  <button class="nav-btn active" onclick="carregar()">Todas Recebidas</button>
+  <button class="nav-btn" onclick="filtrar('Em análise')">Em análise</button>
+  <button class="nav-btn" onclick="filtrar('Resolvido')">Resolvidas</button>
+  
+  <div style="height: 45vh;"></div>
+  
+  <button class="nav-btn text-danger" onclick="logout()">Sair do Sistema</button>
+</div>
+
+<div class="content">
+
+  <div class="header-title d-flex justify-content-between align-items-center">
+    <h2>Gestão de Manifestações</h2>
+    <span class="text-muted fs-6">Administrador: Dom Walfrido</span>
+  </div>
+
+  <div class="card-box">
+    <div id="lista">
+      <div class="item">
+        <div class="d-flex justify-content-between">
+          <span><strong>#16892304</strong> <span class="badge-anon ms-2">Anônimo</span></span>
+          <span class="badge-status analise">Em análise</span>
+        </div>
+        
+        <div class="mt-2">
+          <h6 class="mb-1">Problema com a climatização da sala 4</h6>
+          <p class="text-muted mb-3" style="font-size: 0.9rem;">Tipo: Reclamação</p>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+          <select class="status-select">
+            <option>Em análise</option>
+            <option>Resolvido</option>
+          </select>
+          <button class="btn-delete">Excluir</button>
+        </div>
+      </div>
+      </div>
+  </div>
+
+</div>
+
+<script>
+// Mantive suas funções originais de lógica
+function carregar() {
+  // Lógica do Firebase Original
+  console.log("Carregando todas...");
+}
+
+function filtrar(status) {
+  console.log("Filtrando por: " + status);
+}
+
+function logout(){
+  if(confirm("Deseja sair do painel administrativo?")) {
+    window.location.href = "principal.html";
+  }
+}
+</script>
+
+</body>
+</html>
