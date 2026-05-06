@@ -15,15 +15,9 @@
       --laranja-dw: #f37021; /* Laranja harmônico */
       --laranja-hover: #d65a12;
       --branco: #ffffff;
-      --gelo: #f8fafc;
+      --verde: #14462a;
     }
 
-    body {
-      font-family: 'Outfit', sans-serif;
-      margin: 0;
-      background: var(--gelo);
-      color: #333;
-    }
 
     /* HEADER */
     .topbar {
@@ -77,7 +71,7 @@
     /* HERO SECTION */
     .hero {
       background: linear-gradient(135deg, var(--verde-institucional), var(--verde-gradiente));
-      padding: 100px 0;
+      padding: 250px 0;
       color: white;
       position: relative;
       overflow: hidden;
@@ -180,6 +174,14 @@
       filter: drop-shadow(0 10px 20px rgba(0,0,0,0.2));
     }
 
+.footer {
+      background: linear-gradient(135deg, var(--verde-institucional), var(--verde-gradiente));
+      color: #ffffff;
+      text-align: center;
+      padding: 20px 0;
+      font-size: 0.9rem;
+    }
+
     /* RESPONSIVIDADE */
     @media(max-width: 768px){
       .hero { text-align: center; padding: 60px 20px; }
@@ -203,7 +205,7 @@
     <div class="d-flex align-items-center">
       <div class="nav-links-wrapper d-none d-md-block">
         <a href="#" class="nav-link d-inline">Início</a>
-        <a href="#" class="nav-link d-inline">Institucional</a>
+        <a href="#" class="nav-link d-inline"> Painel de controle</a>
       </div>
       <button class="btn-login-top" onclick="login()">Login</button>
     </div>
@@ -219,7 +221,7 @@
 
           <p>
             Um canal direto, seguro e eficiente para fortalecer nossa comunidade escolar. 
-            Escolha como deseja prosseguir e ajude o <strong>Dom Walfrido</strong> a evoluir.
+            Escolha como deseja prosseguir e ajude o Dom Walfrido a evoluir.
           </p>
 
           <div class="btn-container">
@@ -243,6 +245,10 @@
       </div>
     </div>
   </section>
+
+  <footer class="footer">
+    <p >&copy; 2026 Ouvidoria Dom Walfrido, Todos os direitos reservados.</p>
+</footer>
 
   <script>
     // Se o arquivo agora é PHP, o link deve terminar em .php

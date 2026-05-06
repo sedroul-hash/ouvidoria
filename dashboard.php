@@ -248,7 +248,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <div class="content">
   <div class="welcome-text mb-4">
     <h2>Olá, Bem-vindo(a)!</h2>
-    <p class="text-muted">Acompanhe suas interações com a nossa instituição.</p>
+    <p class="text-muted">Acompanhe suas interações com a nossa instituição</p>
   </div>
 
   <div class="row g-4 mb-4">
