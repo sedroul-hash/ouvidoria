@@ -1,37 +1,106 @@
 <?php
-include 'conexoes.php';
-session_start();
+session_start(); // Sempre no topo
 
-// 1. Verificação de segurança (Agora vai funcionar porque a sessão tem 'logado')
-if (!isset($_SESSION['logado']) || !isset($_SESSION['idusu'])) {
-    header("Location: login.php");
+// --- PROTEÇÃO DA PÁGINA ---
+// Se não existir a sessão de logado ou ela for falsa, manda de volta para o login
+if (!isset($_SESSION['logado']) || $_SESSION['logado'] !== true) {
+    header("Location: index.php"); // Altere para o nome do seu arquivo de login, se for diferente
     exit();
 }
 
-$idusu = $_SESSION['idusu']; 
+include("conexoes.php");
 
-// 2. Processamento do Formulário
+// --- CORREÇÃO DO ERRO: Resgatando o ID do usuário da sessão ---
+$idusu = $_SESSION['idusuario']; 
+
+$erro = ""; 
+$sucesso = ""; 
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $idtipo = $_POST['tipo']; 
-    $assunto = $_POST['assunto'];
-    $mensagem = $_POST['mensagem'];
     
-    // Concatenamos assunto e mensagem já que não há coluna 'assunto' na sua tabela
-    $manifest_completo = "ASSUNTO: " . $assunto . " | MENSAGEM: " . $mensagem;
+    // --- LÓGICA DE LOGIN (Pode ser mantida se esta página também processar o login) ---
+    if (isset($_POST['btn-login']) || (isset($_POST['acao']) && $_POST['acao'] == 'dashboard')) {
+        $email = trim($_POST['email']);
+        $senha = $_POST['senha'];
 
-    $sql = "INSERT INTO tbmanifest (idusu, idtipo, manifest, status) VALUES (?, ?, ?, 'Aberto')";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("iis", $idusu, $idtipo, $manifest_completo);
+        $stmt = $conn->prepare("SELECT IDUSU, NOME, SENHA FROM tbusuarios WHERE EMAIL = ?");
+        if (!$stmt) {
+            die("Erro no prepare (login): " . $conn->error);
+        }
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
 
-    if ($stmt->execute()) {
-        header("Location: dashboard.php?sucesso=1");
-        exit();
-    } else {
-        echo "Erro ao salvar: " . $conn->error;
+        if ($result->num_rows > 0) {
+            $usuario = $result->fetch_assoc();
+            
+            if (password_verify($senha, $usuario['SENHA'])) { 
+                $_SESSION['idusuario'] = $usuario['IDUSU']; 
+                $_SESSION['usuario'] = $usuario['NOME'];
+                $_SESSION['logado'] = true;
+                
+                $stmt->close();
+                header("Location: dashboard.php");
+                exit();
+            } else {
+                $erro = "Senha incorreta!";
+            }
+        } else {
+            $erro = "E-mail ou senha incorretos!"; 
+        }
+        $stmt->close();
+    }
+
+    // --- LÓGICA DE CADASTRO ---
+    if (isset($_POST['btn-cadastrar']) || (isset($_POST['acao']) && $_POST['acao'] == 'cadastrar')) {
+        $nome = trim($_POST['nome']);
+        $email = trim($_POST['email']);
+        $senha_pura = $_POST['senha'];
+
+        $senha_segura = password_hash($senha_pura, PASSWORD_DEFAULT);
+
+        $stmt = $conn->prepare("INSERT INTO tbusuarios (NOME, EMAIL, SENHA) VALUES (?, ?, ?)");
+        if (!$stmt) {
+            die("Erro no prepare (cadastro): " . $conn->error);
+        }
+        
+        $stmt->bind_param("sss", $nome, $email, $senha_segura); 
+        
+        if ($stmt->execute()) {
+            $sucesso = "Conta criada com sucesso! Faça login.";
+        } else {
+            $erro = "Erro ao cadastrar: " . $conn->error;
+        }
+        $stmt->close();
+    }
+    
+    // --- LÓGICA DE INSERÇÃO DE NOVA MANIFESTAÇÃO ---
+    if (isset($_POST['assunto']) && isset($_POST['mensagem'])) {
+        $assunto = trim($_POST['assunto']);
+        $tipo = $_POST['tipo'];
+        $mensagem = trim($_POST['mensagem']);
+        $status = "Pendente"; // Status inicial padrão
+        $data_envio = date('Y-m-d H:i:s'); // Captura data e hora atuais
+
+        // Preparando a query de inserção de forma segura
+        $stmt_manifest = $conn->prepare("INSERT INTO tbmanifest (idusu, assunto, tipo, mensagem, status, data_envio) VALUES (?, ?, ?, ?, ?, ?)");
+        if ($stmt_manifest) {
+            $stmt_manifest->bind_param("isisss", $idusu, $assunto, $tipo, $mensagem, $status, $data_envio);
+            if ($stmt_manifest->execute()) {
+                $stmt_manifest->close();
+                // Redireciona passando o parâmetro de sucesso na URL para evitar reenvio com F5
+                header("Location: dashboard.php?sucesso=1");
+                exit();
+            } else {
+                $erro = "Erro ao enviar manifestação: " . $conn->error;
+            }
+            $stmt_manifest->close();
+        } else {
+            die("Erro no prepare (manifestação): " . $conn->error);
+        }
     }
 }
 ?>
-
 
 <!DOCTYPE html>
 <html lang="pt-br">
@@ -92,10 +161,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     .sidebar-logo {
-    width: 60px;      
-    height: auto;
-    margin-bottom: 15px;
-}
+      width: 60px;      
+      height: auto;
+      margin-bottom: 15px;
+    }
 
     .nav-btn {
       width: 100%;
@@ -247,18 +316,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 <div class="content">
   <div class="welcome-text mb-4">
-    <h2>Olá, Bem-vindo(a)!</h2>
+    <h2>Olá, <?php echo htmlspecialchars($_SESSION['usuario']); ?>!</h2>
     <p class="text-muted">Acompanhe suas interações com a nossa instituição</p>
   </div>
 
+  <!-- SEÇÃO DE CONTADORES (CARDS) -->
   <div class="row g-4 mb-4">
     <div class="col-md-4">
         <div class="status-card bg-dw-verde">
             <h5>Resolvidas</h5>
             <?php
-                $res = $conn->query("SELECT COUNT(*) as total FROM tbmanifest WHERE idusu = $idusu AND status = 'Resolvido'");
-                $row = $res->fetch_assoc();
+                $stmt1 = $conn->prepare("SELECT COUNT(*) as total FROM tbmanifest WHERE idusu = ? AND status = 'Resolvido'");
+                $stmt1->bind_param("i", $idusu);
+                $stmt1->execute();
+                $row = $stmt1->get_result()->fetch_assoc();
                 echo "<h2>" . $row['total'] . "</h2>";
+                $stmt1->close();
             ?>
         </div>
     </div>
@@ -266,9 +339,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <div class="status-card bg-dw-laranja">
             <h5>Em análise</h5>
             <?php
-                $res = $conn->query("SELECT COUNT(*) as total FROM tbmanifest WHERE idusu = $idusu AND status != 'Resolvido'");
-                $row = $res->fetch_assoc();
+                $stmt2 = $conn->prepare("SELECT COUNT(*) as total FROM tbmanifest WHERE idusu = ? AND status != 'Resolvido'");
+                $stmt2->bind_param("i", $idusu);
+                $stmt2->execute();
+                $row = $stmt2->get_result()->fetch_assoc();
                 echo "<h2>" . $row['total'] . "</h2>";
+                $stmt2->close();
             ?>
         </div>
     </div>
@@ -276,18 +352,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <div class="status-card bg-dw-azul">
             <h5>Total enviado</h5>
             <?php
-                $res = $conn->query("SELECT COUNT(*) as total FROM tbmanifest WHERE idusu = $idusu");
-                $row = $res->fetch_assoc();
+                $stmt3 = $conn->prepare("SELECT COUNT(*) as total FROM tbmanifest WHERE idusu = ?");
+                $stmt3->bind_param("i", $idusu);
+                $stmt3->execute();
+                $row = $stmt3->get_result()->fetch_assoc();
                 echo "<h2>" . $row['total'] . "</h2>";
+                $stmt3->close();
             ?>
         </div>
     </div>
   </div>
 
+  <!-- FORMULÁRIO DE NOVA MANIFESTAÇÃO -->
   <form method="POST" id="novo">
     <div class="card-box">
         <h4>Nova Manifestação</h4>
-        <?php if(isset($_GET['sucesso'])) echo '<div class="alert alert-success">Manifestação enviada com sucesso!</div>'; ?>
+        <?php 
+        if(!empty($erro)) echo '<div class="alert alert-danger">'. $erro .'</div>';
+        if(isset($_GET['sucesso'])) echo '<div class="alert alert-success">Manifestação enviada com sucesso!</div>'; 
+        ?>
         <input name="assunto" class="form-control" placeholder="Assunto da mensagem" required>
         <select name="tipo" class="form-control" required>
           <option value="">Selecione o Tipo</option>
@@ -301,30 +384,37 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </div>
   </form>
 
+  <!-- LISTA / HISTÓRICO DE MANIFESTAÇÕES -->
   <div class="card-box" id="lista-hist">
     <h4>Histórico Recente</h4>
     <div id="lista">
         <?php
-        $sql = "SELECT * FROM tbmanifest WHERE idusu = $idusu ORDER BY idmanifest DESC";
-        $result = $conn->query($sql);
+        $stmt_lista = $conn->prepare("SELECT * FROM tbmanifest WHERE idusu = ? ORDER BY idmanifest DESC");
+        $stmt_lista->bind_param("i", $idusu);
+        $stmt_lista->execute();
+        $result = $stmt_lista->get_result();
 
         if ($result && $result->num_rows > 0) {
             while($row = $result->fetch_assoc()) {
+                $data_formatada = (!empty($row['data_envio'])) ? date('d/m/Y', strtotime($row['data_envio'])) : 'Não informada';
+                $status_atual = (!empty($row['status'])) ? $row['status'] : 'Pendente';
+
                 echo '
                 <div class="solicitacao-item d-flex justify-content-between align-items-center">
                     <div>
                         <span class="badge-status mb-2 d-inline-block">#'. $row['idmanifest'] .'</span>
-                        <h6 class="mb-1" style="font-weight:600;">Relato Enviado em '. date('d/m/Y', strtotime($row['data_envio'])) .'</h6>
-                        <small class="text-muted">Status: '. $row['status'] .'</small>
+                        <h6 class="mb-1" style="font-weight:600;">Assunto: '. htmlspecialchars($row['assunto']) .'</h6>
+                        <small class="text-muted">Enviado em: '. $data_formatada .'</small>
                     </div>
                     <div class="text-end">
-                        <span style="color: var(--laranja-dw); font-weight: 600;">'. $row['status'] .'</span>
+                        <span style="color: var(--laranja-dw); font-weight: 600;">'. htmlspecialchars($status_atual) .'</span>
                     </div>
                 </div>';
             }
         } else {
             echo '<p class="text-muted text-center py-4">Nenhuma solicitação enviada ainda.</p>';
         }
+        $stmt_lista->close();
         ?>
     </div>
   </div>
