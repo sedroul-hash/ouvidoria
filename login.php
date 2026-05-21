@@ -1,6 +1,6 @@
 <?php
 include("conexoes.php");
-session_start();
+session_start(); // Sempre iniciado antes de qualquer saída
 
 $erro = ""; 
 $sucesso = ""; 
@@ -8,47 +8,76 @@ $sucesso = "";
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     
     // --- LÓGICA DE LOGIN ---
+    // CORRIGIDO: Agora verifica se a ação é 'login' (combina com o input hidden do HTML)
     if (isset($_POST['acao']) && $_POST['acao'] == 'login') {
-        $email = $_POST['email'];
+        $email = trim($_POST['email']);
         $senha = $_POST['senha'];
 
-        $stmt = $conn->prepare("SELECT idusu, nome, senha FROM tbusu WHERE email = ?");
+        // Buscamos o usuário pelo e-mail informado
+        $stmt = $conn->prepare("SELECT IDUSU, NOME, SENHA FROM tbusuarios WHERE EMAIL = ?");
+        if (!$stmt) {
+            die("Erro no prepare (login): " . $conn->error);
+        }
         $stmt->bind_param("s", $email);
         $stmt->execute();
         $result = $stmt->get_result();
 
+        // Se encontrou o e-mail no banco de dados
         if ($result->num_rows > 0) {
             $usuario = $result->fetch_assoc();
             
-            // MUDANÇA AQUI: Comparamos o texto direto em vez de usar password_verify
-            if ($senha == $usuario['senha']) { 
-              $_SESSION['idusu'] = $usuario['idusu']; // Mudei de id_usuario para idusu
-              $_SESSION['usuario'] = $usuario['nome'];
-              $_SESSION['logado'] = true; // ADICIONE ESTA LINHA para o Dashboard te deixar entrar
-              header("Location: dashboard.php");
-              exit();
+            // CORRIGIDO: Utilizando password_verify para checar a senha criptografada
+            if (password_verify($senha, $usuario['SENHA'])) { 
+                $_SESSION['idusuario'] = $usuario['IDUSU']; 
+                $_SESSION['usuario'] = $usuario['NOME'];
+                $_SESSION['logado'] = true;
+                
+                $stmt->close();
+                header("Location: dashboard.php");
+                exit();
             } else {
-                $erro = "Senha incorreta!";
+                $erro = "E-mail ou senha incorretos!";
             }
         } else {
-            $erro = "Usuário não encontrado!";
+            $erro = "E-mail ou senha incorretos!"; 
         }
+
+        $stmt->close();
     }
 
     // --- LÓGICA DE CADASTRO ---
     if (isset($_POST['acao']) && $_POST['acao'] == 'cadastrar') {
-        $nome = $_POST['nome'];
-        $email = $_POST['email'];
+        $nome = trim($_POST['nome']);
+        $email = trim($_POST['email']);
         $senha_pura = $_POST['senha'];
 
-        // MUDANÇA AQUI: Não usamos mais o password_hash, salvamos a senha direto
-        $stmt = $conn->prepare("INSERT INTO tbusu (nome, email, senha) VALUES (?, ?, ?)");
-        $stmt->bind_param("sss", $nome, $email, $senha_pura);
-        
-        if ($stmt->execute()) {
-            $sucesso = "Conta criada com sucesso! Faça login.";
+        // CORRIGIDO: Segurança em primeiro lugar, gerando hash da senha
+        $senha_segura = password_hash($senha_pura, PASSWORD_DEFAULT);
+
+        // Opcional, mas altamente recomendado: verificar se o e-mail já existe
+        $check = $conn->prepare("SELECT IDUSU FROM tbusuarios WHERE EMAIL = ?");
+        $check->bind_param("s", $email);
+        $check->execute();
+        if ($check->get_result()->num_rows > 0) {
+            $erro = "Este e-mail já está cadastrado!";
+            $check->close();
         } else {
-            $erro = "Erro ao cadastrar: " . $conn->error;
+            $check->close();
+
+            $stmt = $conn->prepare("INSERT INTO tbusuarios (NOME, EMAIL, SENHA) VALUES (?, ?, ?)");
+            if (!$stmt) {
+                die("Erro no prepare (cadastro): " . $conn->error);
+            }
+            
+            // Salvando a $senha_segura (com hash)
+            $stmt->bind_param("sss", $nome, $email, $senha_segura); 
+            
+            if ($stmt->execute()) {
+                $sucesso = "Conta criada com sucesso! Faça login.";
+            } else {
+                $erro = "Erro ao cadastrar: " . $conn->error;
+            }
+            $stmt->close();
         }
     }
 }
@@ -216,23 +245,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <div class="alert-msg alert-success"><?php echo $sucesso; ?></div>
     <?php endif; ?>
 
-    <form id="loginForm" action="login.php" method="POST">
+    <!-- Formulário de Login (Aponta para o próprio arquivo) -->
+    <form id="loginForm" action="" method="POST">
       <input type="hidden" name="acao" value="login">
       <h3 class="title">Acesse sua conta</h3>
       <input type="email" name="email" class="form-control" placeholder="E-mail institucional" required>
-      <input type="password" name="senha" class="form-control" placeholder="Senha" required>
+      <input type="password" minlength="8" name="senha" class="form-control" placeholder="Senha" required>
       <button class="btn-main" type="submit">Entrar</button>
       <div class="switch" onclick="mostrarCadastro()">
         Não tem conta? <b>Cadastre-se</b>
       </div>
     </form>
 
-    <form id="cadastroForm" class="hidden" action="login.php" method="POST">
+    <!-- Formulário de Cadastro (Aponta para o próprio arquivo) -->
+    <form id="cadastroForm" class="hidden" action="" method="POST">
       <input type="hidden" name="acao" value="cadastrar">
       <h3 class="title">Criar nova conta</h3>
       <input type="text" name="nome" class="form-control" placeholder="Nome completo" required>
       <input type="email" name="email" class="form-control" placeholder="E-mail" required>
-      <input type="password" name="senha" class="form-control" placeholder="Crie uma senha" required>
+      <input type="password" minlength="8" name="senha" class="form-control" placeholder="Crie uma senha" required>
       <button class="btn-main" type="submit" style="background: var(--laranja-dw);">Finalizar Cadastro</button>
       <div class="switch" onclick="mostrarLogin()">
         Já possui conta? <b>Fazer login</b>
@@ -246,7 +277,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     function mostrarCadastro() {
       document.getElementById("loginForm").classList.add("hidden");
       document.getElementById("cadastroForm").classList.remove("hidden");
-      // Limpa mensagens de erro ao trocar
+      // Limpa mensagens de erro ao trocar de tela
       document.querySelectorAll('.alert-msg').forEach(el => el.style.display = 'none');
     }
 
