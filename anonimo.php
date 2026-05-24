@@ -159,58 +159,76 @@
   </div>
 
   <form id="anonForm">
-    <select id="tipo" class="form-control" required>
+    <select id="tipo" name="tipo" class="form-control" required>
       <option value="">Selecione o tipo de registro</option>
-      <option>Denúncia</option>
-      <option>Reclamação</option>
-      <option>Sugestão</option>
-      <option>Elogio</option>
+      <option value="Denúncia">Denúncia</option>
+      <option value="Reclamação">Reclamação</option>
+      <option value="Sugestão">Sugestão</option>
+      <option value="Elogio">Elogio</option>
     </select>
 
-    <input id="assunto" class="form-control" placeholder="Assunto (ex: Infraestrutura, Merenda...)" required>
+    <input id="assunto" name="assunto" class="form-control" placeholder="Assunto (ex: Infraestrutura, Merenda...)" required>
 
-    <textarea id="mensagem" class="form-control" rows="4" placeholder="Descreva sua manifestação com o máximo de detalhes possível..." required></textarea>
+    <textarea id="mensagem" name="mensagem" class="form-control" rows="4" placeholder="Descreva sua manifestação com o máximo de detalhes possível..." required></textarea>
 
-    <button type="button" class="btn-main" onclick="enviarAnonimo()">Enviar agora</button>
+    <button type="submit" class="btn-main">Enviar agora</button>
   </form>
 
-  <div id="protocoloBox" class="protocolo-box">
-    </div>
+  <div id="protocoloBox" class="protocolo-box"></div>
 
   <a href="javascript:void(0)" class="btn-back" onclick="window.location.href='index.php'">← Voltar para a página inicial</a>
 
 </div>
 
 <script>
-function enviarAnonimo() {
+// Captura o envio do formulário de forma real via Fetch API
+document.getElementById('anonForm').addEventListener('submit', function(e) {
+  e.preventDefault(); // Impede a página de recarregar sumariamente
+
   const tipo = document.getElementById("tipo").value;
   const assunto = document.getElementById("assunto").value;
   const mensagem = document.getElementById("mensagem").value;
 
-  if(!tipo || !assunto || !mensagem){
-    alert("Por favor, preencha todos os campos antes de enviar.");
-    return;
-  }
+  // Junta o assunto com a mensagem para salvar tudo na coluna 'manifest'
+  const mensagemCompleta = `[Assunto: ${assunto}] - ${mensagem}`;
 
-  // Simulação de geração de protocolo
-  const protocolo = "ANON-" + Math.floor(Math.random() * 900000 + 100000);
+  // Cria o objeto com os dados para o PHP ler via $_POST
+  const formData = new FormData();
+  formData.append('tipo', tipo);
+  formData.append('mensagem', mensagemCompleta);
 
-  const box = document.getElementById("protocoloBox");
-  const form = document.getElementById("anonForm");
-  
-  form.style.display = "none"; // Esconde o formulário após envio
-  box.style.display = "block";
-  box.innerHTML = `
-    <div style="font-size: 2rem; margin-bottom: 10px;">✅</div>
-    <p style="margin-bottom: 5px; color: #166534; font-weight: 600;">Enviado com sucesso!</p>
-    <small style="color: #666;">Guarde seu número de protocolo:</small><br>
-    <strong>${protocolo}</strong>
-  `;
-}
+  // Envia os dados para o arquivo enviar_ano.php
+  fetch('enviar_ano.php', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.text())
+  .then(data => {
+    // Se o PHP gravou no banco com sucesso e retornou "SUCESSO"
+    if (data.trim() === "SUCESSO") {
+      const protocolo = "ANON-" + Math.floor(Math.random() * 900000 + 100000);
 
-function voltar(){
-  window.location.href = "index.php";
-}
+      const box = document.getElementById("protocoloBox");
+      const form = document.getElementById("anonForm");
+      
+      form.style.display = "none"; // Esconde o formulário
+      box.style.display = "block"; // Mostra o bloco de sucesso
+      box.innerHTML = `
+        <div style="font-size: 2rem; margin-bottom: 10px;">✅</div>
+        <p style="margin-bottom: 5px; color: #166534; font-weight: 600;">Enviado com sucesso!</p>
+        <small style="color: #666;">Guarde seu número de protocolo:</small><br>
+        <strong>${protocolo}</strong>
+      `;
+    } else {
+      // Se o PHP retornar algum erro do banco, mostra aqui
+      alert("Erro ao enviar manifestação: " + data);
+    }
+  })
+  .catch(error => {
+    console.error('Erro na requisição:', error);
+    alert("Ocorreu um erro de comunicação com o servidor.");
+  });
+});
 </script>
 
 </body>

@@ -1,21 +1,21 @@
 <?php
-include("conexoes.php");
-session_start(); // Sempre iniciado antes de qualquer saída
+session_start(); // Iniciado na linha 1, prevenindo problemas de cabeçalho
+include("conexoes.php"); 
 
 $erro = ""; 
 $sucesso = ""; 
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     
-    // --- LÓGICA DE LOGIN (SEM CRIPTOGRAFIA) ---
+    // --- LÓGICA DE LOGIN ---
     if (isset($_POST['acao']) && $_POST['acao'] == 'login') {
         $email = trim($_POST['email']);
-        $senha = $_POST['senha']; // Senha digitada pura
+        $senha = $_POST['senha']; 
 
         // Identifica o domínio para saber em qual tabela buscar o login
         if (str_ends_with(strtolower($email), '@edu.sobral.ce.gov.br')) {
             
-            // É e-mail institucional, busca na tabela de administradores (tbadm) comparando o texto direto
+            // É e-mail institucional (tbadm)
             $stmt_adm = $conn->prepare("SELECT idadm, nome, senha FROM tbadm WHERE email = ? AND senha = ?");
             if (!$stmt_adm) {
                 die("Erro no banco de dados (tbadm): " . $conn->error);
@@ -33,8 +33,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $_SESSION['logado'] = true;
                 
                 $stmt_adm->close();
-                header("Location: adm.php"); // Direciona para o painel admin
-                exit();
+                
+                // Redirecionamento Seguro para Admin
+                if (!headers_sent()) {
+                    header("Location: adm.php");
+                    exit();
+                } else {
+                    echo "<script>window.location.href='adm.php';</script>";
+                    exit();
+                }
             } else {
                 $erro = "E-mail ou senha incorretos!";
             }
@@ -42,7 +49,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         } else {
             
-            // NÃO é e-mail institucional, busca na tabela de usuários (tbusu) comparando o texto direto
+            // NÃO é e-mail institucional (tbusu)
             $stmt_usu = $conn->prepare("SELECT idusu, nome, senha FROM tbusu WHERE email = ? AND senha = ?");
             if (!$stmt_usu) {
                 die("Erro no banco de dados (tbusu): " . $conn->error);
@@ -60,8 +67,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $_SESSION['logado'] = true;
                 
                 $stmt_usu->close();
-                header("Location: dashboard.php"); // Direciona para a área do usuário
-                exit();
+                
+                // Redirecionamento Seguro e Forçado para Usuário Comum
+                if (!headers_sent()) {
+                    header("Location: dashboard.php");
+                    exit();
+                } else {
+                    echo "<script>window.location.href='dashboard.php';</script>";
+                    exit();
+                }
             } else {
                 $erro = "E-mail ou senha incorretos!";
             }
@@ -69,33 +83,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
     }
 
-    // --- LÓGICA DE CADASTRO (SEM CRIPTOGRAFIA) ---
+    // --- LÓGICA DE CADASTRO ---
     if (isset($_POST['acao']) && $_POST['acao'] == 'cadastrar') {
         $nome = trim($_POST['nome']);
         $email = trim($_POST['email']);
-        $senha_pura = $_POST['senha']; // Salva exatamente o que foi digitado
+        $senha_pura = $_POST['senha']; 
 
-        // DIFERENCIAÇÃO NO CADASTRO: Verifica o domínio do e-mail inserido
         if (str_ends_with(strtolower($email), '@edu.sobral.ce.gov.br')) {
             
-            // O cadastro é de um ADMIN -> Verifica se o e-mail já existe na 'tbadm'
             $check = $conn->prepare("SELECT idadm FROM tbadm WHERE email = ?");
-            if (!$check) { die("Erro no banco de dados: " . $conn->error); }
             $check->bind_param("s", $email);
             $check->execute();
             
             if ($check->get_result()->num_rows > 0) {
                 $erro = "Este e-mail institucional já está cadastrado como administrador!";
-                $check->close();
             } else {
-                $check->close();
-
-                // Insere os dados em texto puro na tabela 'tbadm'
                 $stmt = $conn->prepare("INSERT INTO tbadm (nome, email, senha) VALUES (?, ?, ?)");
-                if (!$stmt) { die("Erro ao preparar cadastro de administrador: " . $conn->error); }
-                
                 $stmt->bind_param("sss", $nome, $email, $senha_pura); 
-                
                 if ($stmt->execute()) {
                     $sucesso = "Conta de Administrador criada com sucesso! Faça login.";
                 } else {
@@ -103,27 +107,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 }
                 $stmt->close();
             }
+            $check->close();
 
         } else {
             
-            // O cadastro é de um USUÁRIO COMUM -> Verifica se o e-mail já existe na 'tbusu'
             $check = $conn->prepare("SELECT idusu FROM tbusu WHERE email = ?");
-            if (!$check) { die("Erro no banco de dados: " . $conn->error); }
             $check->bind_param("s", $email);
             $check->execute();
             
             if ($check->get_result()->num_rows > 0) {
                 $erro = "Este e-mail já está cadastrado!";
-                $check->close();
             } else {
                 $check->close();
 
-                // Insere os dados em texto puro na tabela 'tbusu'
                 $stmt = $conn->prepare("INSERT INTO tbusu (nome, email, senha) VALUES (?, ?, ?)");
-                if (!$stmt) { die("Erro ao preparar cadastro de usuário: " . $conn->error); }
-                
                 $stmt->bind_param("sss", $nome, $email, $senha_pura); 
-                
                 if ($stmt->execute()) {
                     $sucesso = "Conta de Usuário criada com sucesso! Faça login.";
                 } else {
@@ -135,7 +133,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
